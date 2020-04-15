@@ -12,7 +12,7 @@ cterm,gui間で共通のキーに対して、ctermカラーから\#RGB値に、\
 ### `:Tech2cterm {#RGB}`
 
 \#RGB値から最も近いctermカラーの番号を表示します。確認用として使えると言えば使えそうなので残しています。
-関数 `technicolor#rgb2cterm({\#RGB})` を使用しています。
+関数 `technicolor#rgb2cterm({#RGB})` を使用しています。
 
 ### `:Tech2gui {cterm}`
 
