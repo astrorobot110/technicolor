@@ -66,8 +66,8 @@ let s:technicolorTemplate = {
 
 "}}}
 
-" s:gui2cterm(): guiからctermへ変換 (システムカラーへは変換しない) {{{1
-function! s:gui2cterm(guiColor) abort
+" technicolor#gui2cterm(): guiからctermへ変換 (システムカラーへは変換しない) {{{1
+function! technicolor#gui2cterm(guiColor) abort
 	if a:guiColor =~ '^#\?\x\{6}$'
 		let rgbList = matchlist(a:guiColor, '\v^#(\x\x)(\x\x)(\x\x)')[1:3]
 				\ ->map({_, val ->str2nr(val, 16)})
@@ -117,8 +117,8 @@ endfunction
 
 " }}}
 
-" s:cterm2gui(): ctermからguiへ変換 {{{1
-function! s:cterm2gui(ctermColor) abort
+" technicolor#cterm2gui(): ctermからguiへ変換 {{{1
+function! technicolor#cterm2gui(ctermColor) abort
 	if a:ctermColor < 0 || a:ctermColor > 255
 		return 'none'
 	elseif a:ctermColor <= 15
@@ -244,7 +244,7 @@ function! technicolor#main(args) abort
 	let target = s:targetDict[tolower(env)]
 
 	if ground != ''
-		let targetValue = funcref(printf('s:%s2%s', env, target))(value)
+		let targetValue = funcref(printf('technicolor#%s2%s', env, target))(value)
 	else
 		let targetValue = value
 	endif

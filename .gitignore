@@ -1,0 +1,12 @@
+*
+
+!autoload/
+autoload/*
+!autoload/*.vim
+
+!plugin/
+plugin/*
+!plugin/*.vim
+
+!README.md
+!.gitignore
