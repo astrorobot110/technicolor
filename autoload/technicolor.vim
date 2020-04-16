@@ -242,7 +242,7 @@ function! s:getStructure() abort
 					break
 				endif
 
-				let technicolor.space = args[-1]
+				let technicolor.space = args[-1:]
 				let headText .= args
 				let technicolor.headLength = strdisplaywidth(headText)
 				unlet headText
@@ -293,53 +293,50 @@ function! technicolor#main(args) abort
 
 	let line = getline('.')
 
-	let output = b:technicolor.indent
+	let group = matchstr(line, 'hi\(ghlight\)\?!\? \zs\S*\ze')
 
-	let output .= matchstr(line, '^\s*\zshi\(ghlight\)\?!\?\s\S\+')
-	if output =~# '^\s*$'
-		let output .= b:technicolor.head .. ' '
-	endif
+	let output = b:technicolor.indent..b:technicolor.head..' '..group
 
 	while strdisplaywidth(output) < b:technicolor.headLength
 		let output .= b:technicolor.space
 	endwhile
 
-	let param = {}
+	let args = {}
 	let index = 1
 	while match(line, '\s\zs\S\+=\S\+', 0, index) >= 0
-		let [key, val] = matchlist(line, '\s\zs\(\S\+\)=\(\S\+\)', 0, index)[1:2]
-		let param[key] = val
+		let [argKey, argValue] = matchlist(line, '\s\zs\(\S\+\)=\(\S\+\)', 0, index)[1:2]
+		let args[argKey] = argValue
 		let index += 1
 	endwhile
 
-	let param[env..ground] = value
-	let param[target..ground] = targetValue
+	let args[env..ground] = value
+	let args[target..ground] = targetValue
 
 	let index = 0
 	while index < len(b:technicolor.order)
-		if has_key(param, b:technicolor.order[index])
-			let paramKey = b:technicolor.order[index]
-			let paramValue = param[b:technicolor.order[index]]
-			if paramKey =~# 'gui\(fg\|bg\)' && b:technicolor.isUppercase
-				let paramValue = toupper(paramValue)
+		if has_key(args, b:technicolor.order[index])
+			let argKey = b:technicolor.order[index]
+			let argValue = args[b:technicolor.order[index]]
+			if argKey =~# 'gui\(fg\|bg\)' && b:technicolor.isUppercase
+				let argValue = toupper(argValue)
 			endif
-			let toOut = printf('%s=%s', paramKey , paramValue)
+			let currentArg = printf('%s=%s', argKey , argValue)
 		else
-			let toOut = ''
+			let currentArg = ''
 		endif
 
-		while strdisplaywidth(toOut) < b:technicolor.orderLength[index]
-			let toOut .= b:technicolor.space
+		while strdisplaywidth(currentArg) < b:technicolor.orderLength[index]
+			let currentArg .= b:technicolor.space
 		endwhile
 
-		let output .= toOut
+		let output .= currentArg
 		let index += 1
 	endwhile
 
 	let output = substitute(output, '\s\+$', '', 'e')
 	let column = match(output, 'hi\(ghlight\)\?!\? \zs')
 
-	if line =~# '^\s*hi\(ghlight\)' || line ==# ''
+	if line =~# '^\s*hi\(ghlight\)\?' || line ==# ''
 		call setline(line('.'), output)
 		if line ==# ''
 			call setpos('.', [ bufnr(), line('.')+1, column+1, 0])
