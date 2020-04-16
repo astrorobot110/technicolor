@@ -41,6 +41,7 @@ let s:technicolorTemplate = {
 		\ 'orderLength': [16, 16, 16, 16, 16, 0],
 		\ 'head': 'highlight',
 		\ 'headLength': 24,
+		\ 'indent': '',
 		\ 'space': "\t",
 		\ 'isUppercase': 0
 		\ }
@@ -179,11 +180,11 @@ endfunction
 " s:getStructure(): スクリプト内highlightの記述解析 {{{1
 function! s:getStructure() abort
 	let span = {
-			\ 'start': search('^$', 'nb')+1,
+			\ 'start': line('.') == 1 ? 1 : search('^$', 'nb')+1,
 			\ 'end': search('^$', 'n')
 			\ }
 
-	while match(getline(span.start), '\v\c^(hi(ghlight)?\!?|"\s?technicolor)', '') < 0
+	while match(getline(span.start), '\v\c^\s*(hi(ghlight)?\!?|"\s?technicolor)', '') < 0
 		if span.start == line('.')
 			let span.start = line('.')
 			let span.end = line('.')+1
@@ -213,6 +214,7 @@ function! s:getStructure() abort
 		endif
 
 		let b:technicolor.headLength = strdisplaywidth(param[0])
+		let b:technicolor.indent = matchstr(line, '^\s*')
 		let b:technicolor.space = matchstr(param[0], '\s$')
 
 		let b:technicolor.order = map(param[1:], {_, val->matchstr(val, '\S\+\ze=')})
@@ -251,9 +253,11 @@ function! technicolor#main(args) abort
 
 	let line = getline('.')
 
-	let output = matchstr(line, '^hi\(ghlight\)\?!\?\s\S\+')
-	if output ==# ''
-		let output = b:technicolor.head .. ' '
+	let output = b:technicolor.indent
+
+	let output .= matchstr(line, '^\s*\zshi\(ghlight\)\?!\?\s\S\+')
+	if output =~# '^\s*$'
+		let output .= b:technicolor.head .. ' '
 	endif
 
 	while strdisplaywidth(output) < b:technicolor.headLength
@@ -292,13 +296,18 @@ function! technicolor#main(args) abort
 		let index += 1
 	endwhile
 
-	let output = substitute(output, '/s/+$', '', 'e')
+	let output = substitute(output, '\s\+$', '', 'e')
+	let column = match(output, 'hi\(ghlight\)\?!\? \zs')
 
-	if line =~# '^hi\(ghlight\)' || line ==# ''
+	if line =~# '^\s*hi\(ghlight\)' || line ==# ''
 		call setline(line('.'), output)
+		if line ==# ''
+			call setpos('.', [ bufnr(), line('.')+1, column+1, 0])
+		endif
 	else
-		call append(line('.'), output)
-		call setpos('.', [ bufnr(), line('.')+1, 0, 0])
+		let currentLine = line('.')
+		call append(currentLine-1, output)
+		call setpos('.', [ bufnr(), currentLine, column+1, 0])
 	endif
 endfunction
 " }}}
