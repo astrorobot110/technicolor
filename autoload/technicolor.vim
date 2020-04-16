@@ -43,7 +43,8 @@ let s:technicolorTemplate = {
 		\ 'headLength': 24,
 		\ 'indent': '',
 		\ 'space': "\t",
-		\ 'isUppercase': 0
+		\ 'isUppercase': 0,
+		\ 'isStructured': 1
 		\ }
 
 " ハイライトテンプレに関して {{{2
@@ -180,65 +181,104 @@ endfunction
 " s:getStructure(): スクリプト内highlightの記述解析 {{{1
 function! s:getStructure() abort
 	let span = {
-			\ 'start': line('.') == 1 ? 1 : search('^$', 'nb')+1,
+			\ 'start': line('.') == 1 ? 1 : search('^$', 'nb'),
 			\ 'end': search('^$', 'n')
 			\ }
 
-	while match(getline(span.start), '\v\c^\s*(hi(ghlight)?\!?|"\s?technicolor)', '') < 0
+	while get(l:, 'isMatch', -1) < 0
+		let span.start += 1
+
+		let isMatch = match(getline(span.start), '\v\c^\s*(hi(ghlight)?\!?|"\s?technicolor)', '')
 		if span.start == line('.')
 			let span.start = line('.')
 			let span.end = line('.')+1
 
-			let normalGroup = search('^hi\(ghlight\)\?!\?\s\cnormal', 'nw')
-
 			break
 		endif
-
-		let span.start += 1
 	endwhile
 
-	if span.start < line('.')
+	let normalGroup = search('^hi\(ghlight\)\?!\?\s\cnormal', 'nw')
+
+	if isMatch >= 0
 		let line = getline(span.start)
-	elseif normalGroup > 0
+	elseif normalGroup >= 0
 		let line = getline(normalGroup)
 	endif
 
 	if exists('line')
-		let b:technicolor = {}
-		let param = split(line, '\s\+\zs\ze\S\+=')
+		let commands = split(line, '\S*\s*\zs')
 
-		if match(param[0], '^hi\(ghlight\)\?') == 0
-			let b:technicolor.head = matchstr(param[0], '^hi\(ghlight\)\?')
-		else
-			let b:technicolor.head = get(b:, 'technicolorTemplate.head', s:technicolorTemplate.head)
-		endif
+		let technicolor = {
+				\ 'isUppercase': 0,
+				\ 'isStructured': 0,
+				\ 'order': [],
+				\ 'orderLength': []
+				\ }
 
-		let b:technicolor.headLength = strdisplaywidth(param[0])
-		let b:technicolor.indent = matchstr(line, '^\s*')
-		let b:technicolor.space = matchstr(param[0], '\s$')
+		for args in commands
+			if args =~# '^\s*$'
+				let indent = args
+				let technicolor.indent = args
 
-		let b:technicolor.order = map(param[1:], {_, val->matchstr(val, '\S\+\ze=')})
-		let b:technicolor.orderLength = map(param[1:-2], {_, val->strdisplaywidth(val)})
-				\ ->add(0)
+				continue
 
-		let hexParam = ''
-		for paramIndex in param
-			let hexParam .= matchstr(paramIndex, '#\zs\x\+')
+			elseif args =~# '^hi\(ghlight\)\?!\?'
+				if !exists('indent')
+					let technicolor.indent = ''
+				endif
+
+				let technicolor.head = matchstr(args, '^hi\(ghlight\)\?')
+				let headText = args
+
+			elseif exists('headText')
+				if args =~# '\(link\|clear\)'
+					let technicolor = get(b:, 'technicolorTemplate', s:technicolorTemplate)
+					let technicolor.indent = matchstr(getline('.'), '^\s*')
+					let technicolor.head = matchstr(headText, '^\S\+')
+
+					let span.start = line('.')
+					let span.end = line('.')+1
+
+					break
+				endif
+
+				let technicolor.space = args[-1]
+				let headText .= args
+				let technicolor.headLength = strdisplaywidth(headText)
+				unlet headText
+
+			elseif match(args, '^\S\+=\S\+\s\?') >= 0
+				let key = matchstr(args, '\S\+\ze=')
+				call add(technicolor.order, key)
+
+				if args =~# '\s$'
+					call add(technicolor.orderLength, strdisplaywidth(args))
+				else
+					call add(technicolor.orderLength, 0)
+				endif
+
+				if !technicolor.isUppercase && key =~? 'gui\(fg\|bg\)'
+					let technicolor.isUppercase = matchstr(args, '=\zs#\x') =~# '\u'
+				endif
+			endif
+
+			if !technicolor.isStructured && matchstr(args, '\s*$') != ' '
+				let technicolor.isStructured = 1
+			endif
 		endfor
-
-		let b:technicolor.isUppercase = hexParam =~# '\u'
 	else
-		let b:technicolor = get(b:, 'technicolorTemplate', s:technicolorTemplate)
+		let technicolor = get(b:, 'technicolorTemplate', s:technicolorTemplate)
 	endif
 
-	let b:technicolor.span = span
+	let technicolor.span = span
+
+	return technicolor
 endfunction
-" }}}
 
 " main {{{1
 function! technicolor#main(args) abort
 	if !exists('b:technicolor') || sort(values(b:technicolor.span) + [line('.')], 'n')[1] != line('.')
-		call s:getStructure()
+		let b:technicolor = s:getStructure()
 	endif
 	let tabstop = b:technicolor.space ==# "\t" ? &tabstop : 1
 
