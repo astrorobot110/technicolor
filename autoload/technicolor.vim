@@ -110,13 +110,22 @@ endfunction
 " }}}
 
 function! s:term2rgb(term) abort " xtermカラーパレットからRGB値へ変換 {{{
-	let rgb = '#'
+	if a:term <= 15
+		return s:term2sysRgb(a:term)
 
-	for div in [36, 6, 1]
-		let rgb .= s:rgbValue[(a:term/div)%6]
-	endfor
+	elseif a:term >= 232
+		return s:term2gray(a:term-232)
 
-	return rgb
+	else
+		let term = a:term-16
+		let rgb = '#'
+
+		for div in [36, 6, 1]
+			let rgb .= s:rgbValue[(term/div)%6]
+		endfor
+
+		return rgb
+	endif
 endfunction " }}}
 
 function! s:gui2cterm(value) abort " guiからctermへ変換 {{{
@@ -148,16 +157,8 @@ function! s:cterm2gui(value) abort " ctermからguiへ変換 {{{
 			return s:colorName[a:value]
 		endif
 	elseif sort([0, a:value, 255], 'n')[1] == a:value
-		if a:value <= 15
-			return s:term2sysRgb(a:value)
+		return s:term2rgb(a:value)
 
-		elseif a:value >= 232
-			return s:term2gray(a:value-232)
-
-		elseif str2nr(a:value) > 0
-			return s:term2rgb(a:value-16)
-
-		endif
 	endif
 
 	return 'none'
