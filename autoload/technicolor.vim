@@ -251,10 +251,7 @@ function! technicolor#get(...) abort " 値の取得 {{{
 endfunction " }}}
 
 function! technicolor#main() abort " main {{{
-	let b:technicolor_headLine = get(b:, 'technicolor_headLine',
-			\ get(g:, 'technicolor_headLine', 'Normal'))
 	let b:technicolor = technicolor#get()
-	let b:technicolor.order = technicolor#get(b:technicolor_headLine, 'template').order
 
 	let column = getcurpos()[2]-(mode() =~# 'n')
 	let line = getline('.')
