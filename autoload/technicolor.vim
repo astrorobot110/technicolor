@@ -167,12 +167,12 @@ endfunction " }}}
 let s:Technicolor = {
 		\	'case':		0,
 		\	'command':	'highlight',
-		\	'ctermfg':	{ -> &background ==# 'light' ? 0 : 15 }(),
-		\	'ctermbg':	{ -> &background ==# 'light' ? 15 : 0 }(),
-		\	'cterm':	'none',
-		\	'guifg':	{ -> &background ==# 'light' ? '#000000' : '#ffffff' }(),
-		\	'guibg':	{ -> &background ==# 'light' ? '#000000' : '#ffffff' }(),
-		\	'gui':		'none',
+		\	'ctermfg':	'',
+		\	'ctermbg':	'',
+		\	'cterm':	'',
+		\	'guifg':	'',
+		\	'guibg':	'',
+		\	'gui':		'',
 		\	'order':	[ 'ctermfg', 'ctermbg', 'cterm', 'guifg', 'guibg', 'gui' ],
 		\ }
 " }}}
@@ -255,20 +255,22 @@ function! technicolor#main() abort " main {{{
 	let b:technicolor = technicolor#get()
 	let b:technicolor.order = technicolor#get(b:technicolor_headLine, 'template').order
 
-	let column = getcurpos()[2]-1
+	let column = getcurpos()[2]-(mode() =~# 'n')
 	let line = getline('.')
 
-	let column = match(line, '\s\+', column)
+	let lastArg = matchlist(line[0:column-1], '\v(%(cterm|gui)%(fg|bg)?)\=(\S+\s*)?$')
+	echo lastArg
 
-	let lastArg = matchlist(line[0:column-1], '\v(\S+)(\=)(\S*\s*)$')
-	if len(lastArg) == 0
-		let first = match(line, '\v^\s*("\s*)?hi(ghlight)?') > -1
+	if len(lastArg) > 0
+		if len(lastArg[2]) > 0
+			return b:technicolor.order[match(b:technicolor.order, '^'..lastArg[1]..'$')+1]..'='
+		else
+			call b:technicolor.fetch(lastArg[1])
+			return b:technicolor[lastArg[1]]
+		endif
 	endif
 
-	if get(l:, 'first', 0)
-		return b:technicolor.order[0]..'='
-	endif
-
+	return ''
 endfunction " }}}
 
 let &cpoptions = s:save_cpo
