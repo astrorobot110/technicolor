@@ -166,15 +166,17 @@ endfunction " }}}
 
 " クラス定義 {{{
 let s:Technicolor = {
-		\	'case':		0,
-		\	'command':	'highlight',
-		\	'ctermfg':	'',
-		\	'ctermbg':	'',
-		\	'cterm':	'',
-		\	'guifg':	'',
-		\	'guibg':	'',
-		\	'gui':		'',
-		\	'order':	[ 'ctermfg', 'ctermbg', 'cterm', 'guifg', 'guibg', 'gui' ],
+		\	'case':			0,
+		\	'structure':	0,
+		\	'command':		'highlight',
+		\	'ctermfg':		'',
+		\	'ctermbg':		'',
+		\	'cterm':		'',
+		\	'guifg':		'',
+		\	'guibg':		'',
+		\	'gui':			'',
+		\	'order':		[ 'ctermfg', 'ctermbg', 'cterm', 'guifg', 'guibg', 'gui' ],
+		\	'length':		[ 24, 40, 56, 72, 88, 104, 120 ],
 		\ }
 " }}}
 
@@ -192,15 +194,33 @@ function! s:Technicolor.fetch(key) abort " クラス内: 値の変換 {{{
 	endif
 endfunction " }}}
 
-function! technicolor#get(...) abort " 値の取得 {{{
+function! s:Technicolor.getArgs() abort " 値の取得 {{{
+	let line = getline('.')
+
+	if line !~# '\v^\s*("\s*)?hi(ghlight)?'
+		throw '[technicolor]: No highlight line.'
+	endif
+
+	for key in keys(self)->filter('v:val =~# ''\v(cterm|gui)''')
+		let self[key] = ''
+	endfor
+
+	let list = split(line, '\s\+')
+
+	for arg in list->filter('v:val =~# ''\v^(cterm|gui)''')
+		if arg =~# '\v(cterm|gui)(fg|bg)?\=\S+'
+			let [ key, value ] = split(arg, '=')
+			let self[key] = value
+		endif
+	endfor
+endfunction " }}}
+
+function! s:Technicolor.getTemplate(...) abort " テンプレートの取得 {{{
 	if a:0 == 0
 		let line = getline('.')
 
 	elseif str2nr(a:1) > 0
 		let line = getline(a:1)
-
-	elseif a:1 ==# 'template'
-		let template = 1
 
 	elseif a:1 ==# 'top'
 		while !exists('line')
@@ -219,53 +239,83 @@ function! technicolor#get(...) abort " 値の取得 {{{
 
 	endif
 
-	let template = get(l:, 'template',
-			\ get(a:, '2', '') ==# 'template' ? 1 : 0 )
-
-	let list = split(line, '\s\+')
-
-	let technicolor = deepcopy(s:Technicolor)
-	if template
-		let technicolor.order = []
+	if line !~# '\v^\s*("\s*)?hi(ghlight)?'
+		throw '[technicolor]: No highlight line.'
 	endif
 
+	let self.case = 0
+	let self.structure = 1
+	let self.command = 'highlight'
+	let self.order = []
+	let self.length = []
+
+	let list = split(line, '\s\+\zs')
+	let length = ''
+
 	for arg in list
-		if arg =~# 'hi\(ghlight\)\?'
-			let technicolor.command = arg
+		let lengthFlag = 0
 
-		elseif arg =~# '\v(cterm|gui)(fg|bg)?\=\S+'
-			let [ key, value ] = split(arg, '=')
-			let technicolor[key] = value
+		if arg =~# '^\s*$'
+			continue
 
-			if !technicolor.case && value[0] ==# '#'
-				let technicolor.case = value =~# '\u'
+		elseif arg =~# '\v^hi(ghlight)?'
+			let self.command = trim(arg)
+
+		elseif arg =~# '\v^\S+\=\S+'
+			let lengthFlag = 1
+			if len(self.length) == 0
+				call add(self.length, strdisplaywidth(length))
 			endif
 
-			if template
-				call add(technicolor.order, key)
+			call add(self.order, matchstr(arg, '^\S\+\ze='))
+
+			if self.case || arg =~# '\u'
+				let self.case = 1
 			endif
+		endif
+
+		let length .= arg
+		if lengthFlag
+			call add(self.length, strdisplaywidth(length))
 		endif
 	endfor
 
-	return technicolor
 endfunction " }}}
 
-function! technicolor#main() abort " main {{{
-	let b:technicolor = technicolor#get()
-
+function! technicolor#main(...) abort " main {{{
 	let column = getcurpos()[2]-(mode() =~# 'n')
-	let line = getline('.')
+	let line = getline('.')[0:column-1]
 
-	let lastArg = matchlist(line[0:column-1], '\v(%(cterm|gui)%(fg|bg)?)\=(\S+\s*)?$')
-	echo lastArg
+	if line !~# '\v^\s*("\s*)?hi(ghlight)?'
+		throw '[technicolor]: No highlight line.'
+	endif
+
+	if get(a:, '1', 0) || !exists('b:technicolor')
+		let b:technicolor = deepcopy(s:Technicolor)
+	endif
+	call b:technicolor.getArgs()
+
+	let lastArg = matchlist(line, '\v(%(cterm|gui)%(fg|bg)?)\=(\S+)?\s*$')
 
 	if len(lastArg) > 0
 		if len(lastArg[2]) > 0
-			return b:technicolor.order[match(b:technicolor.order, '^'..lastArg[1]..'$')+1]..'='
+			let index = 0
+			let nextArg = ''
+			while index < len(b:technicolor.length) && len(nextArg) == 0
+				if strdisplaywidth(trim(line)) <= b:technicolor.length[index]
+					let nextArg = b:technicolor.order[index]..'='
+				endif
+
+				let index += 1
+			endwhile
+
+			return nextArg
 		else
 			call b:technicolor.fetch(lastArg[1])
 			return b:technicolor[lastArg[1]]
 		endif
+	else
+		return b:technicolor.order[0]..'='
 	endif
 
 	return ''
